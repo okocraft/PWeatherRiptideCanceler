@@ -1,0 +1,6 @@
+name: PWeatherRiptideCanceler
+version: '${project.version}'
+main: net.okocraft.pweatherriptidecanceler.PWeatherRiptideCanceler
+api-version: 1.19
+depend:
+  - ProtocolLib
