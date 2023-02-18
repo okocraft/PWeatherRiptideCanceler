@@ -1,16 +1,7 @@
 package net.okocraft.pweatherriptidecanceler;
 
-import com.comphenix.protocol.PacketType;
-import com.comphenix.protocol.ProtocolLibrary;
-import com.comphenix.protocol.ProtocolManager;
-import com.comphenix.protocol.events.ListenerPriority;
-import com.comphenix.protocol.events.PacketAdapter;
-import com.comphenix.protocol.events.PacketEvent;
-import com.comphenix.protocol.wrappers.EnumWrappers;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.WeatherType;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -18,66 +9,67 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class PWeatherRiptideCanceler extends JavaPlugin implements Listener {
 
-    private final Set<UUID> mayClientSideRiptide = new HashSet<>();
-
-    private ProtocolManager protocol;
-
-    @Override
-    public void onLoad() {
-        protocol = ProtocolLibrary.getProtocolManager();
-    }
-
     @Override
     public void onEnable() {
-        protocol.addPacketListener(new PacketAdapter(this, ListenerPriority.NORMAL, PacketType.Play.Client.BLOCK_DIG) {
-            @Override
-            public void onPacketReceiving(PacketEvent event) {
-                if (event.getPacket().getPlayerDigTypes().readSafely(0) != EnumWrappers.PlayerDigType.RELEASE_USE_ITEM) {
-                    return;
-                }
-
-                Player player = event.getPlayer();
-                int riptide = player.getInventory().getItemInMainHand().getEnchantmentLevel(Enchantment.RIPTIDE);
-                if (riptide == 0 || player.isInWater()) {
-                    return;
-                }
-
-                if (!player.isInRain() && isInRainClientSide(player)) {
-                    mayClientSideRiptide.add(player.getUniqueId());
-                }
-
-            }
-        });
-
-        getServer().getPluginManager().registerEvents(new Listener() {
-
-            @EventHandler
-            private void onPlayerMove(PlayerMoveEvent event) {
-                if (mayClientSideRiptide.contains(event.getPlayer().getUniqueId())) {
-                    event.setCancelled(true);
-                    mayClientSideRiptide.remove(event.getPlayer().getUniqueId());
-                }
-            }
-
-        }, this);
+        getServer().getPluginManager().registerEvents(this, this);
     }
 
-    public boolean isInRainClientSide(Player client) {
+    @EventHandler
+    private void onPlayerInteract(PlayerInteractEvent event) {
+        handlePlayerUseTrident(event.getPlayer(), event.getHand());
+    }
+
+    private void handlePlayerUseTrident(Player player, EquipmentSlot hand) {
+        if (hand != EquipmentSlot.HAND && hand != EquipmentSlot.OFF_HAND) {
+            return;
+        }
+        ItemStack trident = player.getInventory().getItem(hand);
+        if (trident == null || trident.getType() != Material.TRIDENT) {
+            return;
+        }
+
+        trident = trident.clone();
+
+        int riptide = trident.getEnchantmentLevel(Enchantment.RIPTIDE);
+        if (riptide == 0 || player.isInWater()) {
+            return;
+        }
+
+        if (isInRain(player, true) && !isInRain(player, false)) {
+            if (hand == EquipmentSlot.OFF_HAND) {
+                PlayerInventory inv = player.getInventory();
+                ItemStack mainHandItem = inv.getItemInMainHand();
+                inv.setItemInMainHand(inv.getItemInOffHand());
+                inv.setItemInOffHand(null);
+                player.dropItem(true);
+                inv.setItemInMainHand(mainHandItem);
+            } else {
+                player.dropItem(true);
+            }
+            player.updateInventory();
+        }
+    }
+
+    public boolean isInRain(Player client, boolean clientSide) {
         Location pos = client.getLocation();
-        return isRainingClientSideAt(client, pos) || isRainingClientSideAt(client, new Location(
+
+        return isRaining(client, pos, clientSide) || isRaining(client, new Location(
                 client.getWorld(),
                 pos.getX(),
                 client.getBoundingBox().getMaxY(),
                 pos.getZ()
-        ));
+        ), clientSide);
     }
 
-    public boolean isRainingClientSideAt(Player client, Location pos) {
+    public boolean isRaining(Player client, Location pos, boolean clientSide) {
         World world = pos.getWorld();
         if (world == null) {
             return false;
@@ -85,7 +77,7 @@ public final class PWeatherRiptideCanceler extends JavaPlugin implements Listene
 
         Block block = world.getBlockAt(pos);
 
-        if (client.getPlayerWeather() != WeatherType.DOWNFALL) {
+        if ((clientSide && client.getPlayerWeather() != WeatherType.DOWNFALL) || (!clientSide && !world.hasStorm())) {
             return false;
         } else if (block.getLightFromSky() < 15) {
             return false;
