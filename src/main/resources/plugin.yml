@@ -1,5 +1,5 @@
 name: PWeatherRiptideCanceler
-version: '${project.version}'
+version: '${projectVersion}'
 main: net.okocraft.pweatherriptidecanceler.PWeatherRiptideCanceler
-api-version: 1.19
+api-version: '${minecraftVersion}'
 folia-supported: true
