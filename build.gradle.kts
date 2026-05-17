@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "net.okocraft.pweatherriptidecanceler"
-version = "2.0-SNAPSHOT"
+version = "2.0"
 val mcVersion = libs.versions.paper.get().replaceAfter(".build", "").removeSuffix(".build")
 val fullVersion = "${version}-mc${mcVersion}"
 
