@@ -1,12 +1,15 @@
 package net.okocraft.pweatherriptidecanceler;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.levelgen.Heightmap;
 import org.bukkit.Material;
-import org.bukkit.WeatherType;
 import org.bukkit.craftbukkit.CraftWorld;
+import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.craftbukkit.util.CraftLocation;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -19,6 +22,8 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class PWeatherRiptideCanceler extends JavaPlugin implements Listener {
+
+    private static final VarHandle PLUGIN_RAIN_POSITION = getPluginRainPositionHandle();
 
     @Override
     public void onEnable() {
@@ -83,7 +88,7 @@ public final class PWeatherRiptideCanceler extends JavaPlugin implements Listene
 
     // See: net.minecraft.world.level.Level#precipitationAt
     public Biome.Precipitation precipitationAtForClient(Player client, Level level, BlockPos pos) {
-        if (client.getPlayerWeather() != WeatherType.DOWNFALL) {
+        if (!isRainingForClient(client, level)) {
             return Biome.Precipitation.NONE;
         } else if (!level.canSeeSky(pos)) {
             return Biome.Precipitation.NONE;
@@ -92,6 +97,28 @@ public final class PWeatherRiptideCanceler extends JavaPlugin implements Listene
         } else {
             Biome biome = level.getBiome(pos).value();
             return biome.getPrecipitationAt(pos, level.getSeaLevel());
+        }
+    }
+
+    // See: net.minecraft.world.level.Level#isRaining
+    private boolean isRainingForClient(Player client, Level level) {
+        return level.canHaveWeather() && getRainLevelForClient(client, level) > 0.2;
+    }
+
+    private float getRainLevelForClient(Player client, Level level) {
+        if (client.getPlayerWeather() == null || !(client instanceof CraftPlayer craftPlayer)) {
+            return level.getRainLevel(1.0F);
+        }
+
+        return (float) PLUGIN_RAIN_POSITION.get(craftPlayer.getHandle());
+    }
+
+    private static VarHandle getPluginRainPositionHandle() {
+        try {
+            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(ServerPlayer.class, MethodHandles.lookup());
+            return lookup.findVarHandle(ServerPlayer.class, "pluginRainPosition", float.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            throw new ExceptionInInitializerError(e);
         }
     }
 }
