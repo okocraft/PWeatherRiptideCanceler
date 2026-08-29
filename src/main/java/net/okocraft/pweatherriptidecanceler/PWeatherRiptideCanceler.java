@@ -1,6 +1,7 @@
 package net.okocraft.pweatherriptidecanceler;
 
-import java.lang.reflect.Field;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
@@ -22,7 +23,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class PWeatherRiptideCanceler extends JavaPlugin implements Listener {
 
-    private static final Field PLUGIN_RAIN_POSITION = getPluginRainPositionField();
+    private static final VarHandle PLUGIN_RAIN_POSITION = getPluginRainPositionHandle();
 
     @Override
     public void onEnable() {
@@ -109,19 +110,14 @@ public final class PWeatherRiptideCanceler extends JavaPlugin implements Listene
             return level.getRainLevel(1.0F);
         }
 
-        try {
-            return PLUGIN_RAIN_POSITION.getFloat(craftPlayer.getHandle());
-        } catch (IllegalAccessException e) {
-            throw new IllegalStateException("Could not read the client rain level", e);
-        }
+        return (float) PLUGIN_RAIN_POSITION.get(craftPlayer.getHandle());
     }
 
-    private static Field getPluginRainPositionField() {
+    private static VarHandle getPluginRainPositionHandle() {
         try {
-            Field field = ServerPlayer.class.getDeclaredField("pluginRainPosition");
-            field.setAccessible(true);
-            return field;
-        } catch (NoSuchFieldException e) {
+            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(ServerPlayer.class, MethodHandles.lookup());
+            return lookup.findVarHandle(ServerPlayer.class, "pluginRainPosition", float.class);
+        } catch (NoSuchFieldException | IllegalAccessException e) {
             throw new ExceptionInInitializerError(e);
         }
     }
