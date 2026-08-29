@@ -101,7 +101,7 @@ public final class PWeatherRiptideCanceler extends JavaPlugin implements Listene
 
     // See: net.minecraft.world.level.Level#isRaining
     private boolean isRainingForClient(Player client, Level level) {
-        return level.canHaveWeather() && getRainLevelForClient(client, level) > 0.2F;
+        return level.canHaveWeather() && getRainLevelForClient(client, level) > 0.2;
     }
 
     private float getRainLevelForClient(Player client, Level level) {
